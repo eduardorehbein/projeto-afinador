@@ -55,7 +55,7 @@ LiquidCrystal lcd(12, 11, 5, 4, 3, 2);
  
 //Estado do setup, false -> definindo, true -> começando a afinar
 
- bool start = false; //segundo dia
+ bool start = false;
 
 //Agrupamento de frequencias por corda
  int freqCorda6[8]= {L6,Bb6,B6,C6,Db6,D6,Eb6,E6};
@@ -103,25 +103,41 @@ void display(){
     lcd.setCursor(14,1);
     lcd.print(Corda1[bC1]);
     lcd.home();
+
+    Serial.print(bC6);
 }
 
 void detectaClick(int porta, int* valBtnCorda){  //Cada vez que o botão é pressionado a variavel ligada a tal botao diminui uma vez
 
-  while(digitalRead(porta));
   if(digitalRead(porta))
     (*valBtnCorda)--;
   if((*valBtnCorda) == -1) //Limite da variável
     (*valBtnCorda) = 7;
+  while(digitalRead(porta));
+}
+
+void verificaReset() {
+  if(digitalRead(7)){
+    while(digitalRead(7)); //Para o botão não registrar múltiplos clicks
+    start = false;
+
+    //Reseta as variáveis
+    bC6 = 7;
+    bC5 = 7;
+    bC4 = 7;
+    bC3 = 7;
+    bC2 = 7;
+    bC1 = 7;
+  }
 }
 
 void loop() {
   
- if(digitalRead(7)){
-    while(digitalRead(7)); //Para o botão não registrar múltiplos clicks
-    start = true;
-  }
-  
   if(start == false){
+    if(digitalRead(7)){
+      while(digitalRead(7)); //Para o botão não registrar múltiplos clicks
+      start = true;
+    }
     
     detectaClick(A0,&bC1);
     detectaClick(A1,&bC2);
@@ -130,6 +146,7 @@ void loop() {
     detectaClick(A4,&bC5);
     detectaClick(A5,&bC6);
   } else {
+    verificaReset();
  
     //Começa a afinar
   }
