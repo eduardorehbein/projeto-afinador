@@ -54,7 +54,6 @@ LiquidCrystal lcd(12, 11, 5, 4, 3, 2);
  int bC1 = 7;
  
 //Estado do setup, false -> definindo, true -> começando a afinar
-
  bool start = false;
 
 //Agrupamento de frequencias por corda
