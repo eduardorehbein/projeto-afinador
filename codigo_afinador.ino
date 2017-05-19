@@ -73,6 +73,14 @@ char* Corda3[8] = {"C ", "C#", "D ", "D#", "E ", "F ", "F#", "G "};
 char* Corda2[8] = {"E ", "F ", "F#", "G ", "G#", "A ", "A#", "B "};
 char* Corda1[8] = {"A ", "A#", "B ", "C ", "C#", "D ", "D#", "E "};
 
+int* v[6] = {&bC1, &bC2, &bC3, &bC4, &bC5, &bC6};
+
+int k = 5;
+
+const int bCor = A1, bAfi = A2;
+
+int a, b;
+
 void setup() {
 
   //Definindo as portas ligadas aos botoes como entradas
@@ -84,10 +92,10 @@ void setup() {
   pinMode(A5, INPUT);
   pinMode(7 , INPUT);
   lcd.begin(16, 2);
+  Serial.begin(9600);
 }
 
 void display() {
-
   //Programação do display
   lcd.print(Corda6[bC6]);
   lcd.setCursor(7, 0);
@@ -102,57 +110,89 @@ void display() {
   lcd.setCursor(14, 1);
   lcd.print(Corda1[bC1]);
   lcd.home();
-
-}
-
-void botoesDeAfinacao(int porta, int* variavelDaCorda) { 
-
-  if (digitalRead(porta))  //Cada vez que o botão é pressionado a variável ligada a tal botão diminui uma vez
-    (*variavelDaCorda)--;
-
-  if ((*variavelDaCorda) == -1)  //Limite da variável
-    (*variavelDaCorda) = 7;
-
-  while (digitalRead(porta));
 }
 
 void verificaReset() {
-  if (digitalRead(7)) {
-    while (digitalRead(7)); //Para o botão não registrar múltiplos clicks
+  if (digitalRead(6)) {
+    while (digitalRead(6)); //Para o botão não registrar múltiplos clicks
     estado = false;
 
     //Reseta as variáveis
-    bC6 = 7;
-    bC5 = 7;
-    bC4 = 7;
-    bC3 = 7;
-    bC2 = 7;
     bC1 = 7;
+    bC2 = 7;
+    bC3 = 7;
+    bC4 = 7;
+    bC5 = 7;
+    bC6 = 7;
+  }
+}
+
+void sinal(int a, int b, int c, int l, int d, int f, int m, int n, char h) {
+  if (k == a) {
+    lcd.setCursor(b, m);
+    lcd.print(h);
+    lcd.home();
+    lcd.setCursor(d, c);
+    lcd.print(" ");
+    lcd.home();
+    lcd.setCursor(f, c);
+    lcd.print(" ");
+    lcd.home();
+    lcd.setCursor(b, n);
+    lcd.print(" ");
+    lcd.home();
+    lcd.setCursor(d, l);
+    lcd.print(" ");
+    lcd.home();
+    lcd.setCursor(f, l);
+    lcd.print(" ");
+    lcd.home();
+  }
+}
+
+void botao(int conta, int porta, int *variavel, int lim1, int lim2) {
+  conta = 0;
+  while (digitalRead(porta)) {
+    delay(15);
+    conta++;
+  }
+  if (conta <= 20 && conta != 0) {
+    (*variavel)--;
+  }
+  if (conta > 20) {
+    (*variavel)++;
+  }
+
+  if ((*variavel) == lim1) {
+    (*variavel) = 0;
+  }
+  if ((*variavel) == -1) {
+    (*variavel) = lim2;
   }
 }
 
 void loop() {
+  Serial.print(k);
 
- display();
- 
   if (estado == false) {
-    if (digitalRead(7)) {
-      while (digitalRead(7)); //Para o botão não registrar múltiplos clicks
+    if (digitalRead(6)) {
+      while (digitalRead(6));
       estado = true;
     }
+    display();
+    sinal(5, 2, 0,  1, 6, 13, 0, 1, '<');
+    sinal(4, 6, 0, 1, 2, 13, 0, 1, '>');
+    sinal(3, 13, 0, 1, 6, 2, 0, 1, '>');
+    sinal(2, 2, 0, 1, 6, 13, 1, 0, '<' );
+    sinal(1, 6, 0, 1, 2, 13, 1, 0, '>');
+    sinal(0, 13, 0, 1, 6, 2, 1, 0, '>');
 
-    botoesDeAfinacao(A0, &bC1);
-    botoesDeAfinacao(A1, &bC2);
-    botoesDeAfinacao(A2, &bC3);
-    botoesDeAfinacao(A3, &bC4);
-    botoesDeAfinacao(A4, &bC5);
-    botoesDeAfinacao(A5, &bC6);
-
+    botao(a, bAfi, *(v[k]), 8, 7);
+    botao(b, bCor, &k, 6, 5);
   }
 
   if (estado == true) {
     verificaReset();
-
     //Começa a afinar
 
   }
