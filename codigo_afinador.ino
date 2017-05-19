@@ -73,7 +73,7 @@ char* Corda3[8] = {"C ", "C#", "D ", "D#", "E ", "F ", "F#", "G "};
 char* Corda2[8] = {"E ", "F ", "F#", "G ", "G#", "A ", "A#", "B "};
 char* Corda1[8] = {"A ", "A#", "B ", "C ", "C#", "D ", "D#", "E "};
 
-int v[6] = {bC1, bC2, bC3, bC4, bC5, bC6};
+int* v[6] = {&bC1, &bC2, &bC3, &bC4, &bC5, &bC6};
 
 int k = 5;
 
@@ -96,22 +96,20 @@ void setup() {
 }
 
 void display() {
-
   //Programação do display
-  lcd.print(Corda6[v[5]]);
+  lcd.print(Corda6[bC6]);
   lcd.setCursor(7, 0);
-  lcd.print(Corda5[v[4]]);
+  lcd.print(Corda5[bC5]);
   lcd.setCursor(14, 0);
-  lcd.print(Corda4[v[3]]);
+  lcd.print(Corda4[bC4]);
   lcd.home();
   lcd.setCursor(0, 1);
-  lcd.print(Corda3[v[2]]);
+  lcd.print(Corda3[bC3]);
   lcd.setCursor(7, 1);
-  lcd.print(Corda2[v[1]]);
+  lcd.print(Corda2[bC2]);
   lcd.setCursor(14, 1);
-  lcd.print(Corda1[v[0]]);
+  lcd.print(Corda1[bC1]);
   lcd.home();
-
 }
 
 void verificaReset() {
@@ -120,17 +118,16 @@ void verificaReset() {
     estado = false;
 
     //Reseta as variáveis
-    v[5] = 7;
-    v[4] = 7;
-    v[3] = 7;
-    v[2] = 7;
-    v[1] = 7;
-    v[0] = 7;
+    bC1 = 7;
+    bC2 = 7;
+    bC3 = 7;
+    bC4 = 7;
+    bC5 = 7;
+    bC6 = 7;
   }
 }
 
 void sinal(int a, int b, int c, int l, int d, int f, int m, int n, char h) {
-
   if (k == a) {
     lcd.setCursor(b, m);
     lcd.print(h);
@@ -172,13 +169,10 @@ void botao(int conta, int porta, int *variavel, int lim1, int lim2) {
   if ((*variavel) == -1) {
     (*variavel) = lim2;
   }
-
 }
 
 void loop() {
-
   Serial.print(k);
-
 
   if (estado == false) {
     if (digitalRead(6)) {
@@ -193,13 +187,13 @@ void loop() {
     sinal(1, 6, 0, 1, 2, 13, 1, 0, '>');
     sinal(0, 13, 0, 1, 6, 2, 1, 0, '>');
 
-    botao(a, bAfi, &v[k], 8, 7);
+    botao(a, bAfi, *(v[k]), 8, 7);
     botao(b, bCor, &k, 6, 5);
   }
 
   if (estado == true) {
     verificaReset();
+    //Começa a afinar
 
-    //começa a afinar
   }
 }
