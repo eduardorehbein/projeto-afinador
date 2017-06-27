@@ -5,8 +5,6 @@
 //Variáveis relacionadas ao motor
 const int STEPS_PER_REVOLUTION = 500;
 const int PASSO_MOTOR = 80;
-int girouAntiHorario = 0;
-int girouHorario = 0;
 
 //Objetos
 Stepper motor(STEPS_PER_REVOLUTION, 7, 9, 8, 10);
@@ -115,6 +113,26 @@ void setup() {
   motor.setSpeed(60);
 }
 
+void verificaReset(int resetForcado) {
+  if (digitalRead(BTN_START_RESET) || resetForcado) {
+    //Reseta as variáveis
+    comecouAfinacao = false;
+    erro = false;
+    trocandoCorda = false;
+    cordaEmAfinacao = 5;
+    cordaSelecionada = 5;
+    freqSeg = 1;
+    for (int i = 0; i < 7; i++) {
+      if(i < 6)
+        bC[i] = 7;
+      acendeLed(i, INCOLOR);
+    }
+    
+    while (digitalRead(BTN_START_RESET)); //Para o botão não registrar múltiplos clicks
+    lcd.clear();
+  }
+}
+
 double leFrequencia() {
   int amplitudeInicial = 0;
   int amplitudeAtual = 0;
@@ -128,7 +146,7 @@ double leFrequencia() {
   long semiPeriodo2 = 0;
 
   //Diferença máxima aceitável entre os semiperíodos encontrados
-  const long DISPARIDADE_MAXIMA_SEMI_PERIODOS = 100;  
+  const long DISPARIDADE_MAXIMA_SEMI_PERIODOS = 300;  
   
   bool leuAmplitudeInicial = false;
   bool comecouLeitura = false;
@@ -136,6 +154,7 @@ double leFrequencia() {
   double frequencia = 0;
   
   while(!frequencia) {
+    verificaReset(0);
     instanteAtual = micros();
     amplitudeAtual = analogRead(ENTRADA_SINAL);
     
@@ -187,7 +206,7 @@ double leFrequencia() {
 }
 
 double getFrequenciaMedia(){
-  const int QTD_AMOSTRAS = 15; 
+  const int QTD_AMOSTRAS = 5; 
   double freqAmostradas[QTD_AMOSTRAS];
   double somaFrequenciasNaMedia = 0;
   int tamanhoArrayMedia = 0;
@@ -262,27 +281,6 @@ void posicionaIndicador(int a, int b, int d, int f, int m, int n, char h, int* i
   }
 }
 
-void verificaReset(int resetForcado) {
-  if (digitalRead(BTN_START_RESET) || resetForcado) {
-    //Reseta as variáveis
-    comecouAfinacao = false;
-    erro = false;
-    trocandoCorda = false;
-    girouAntiHorario = 0; 
-    girouHorario = 0;
-    cordaEmAfinacao = 5;
-    cordaSelecionada = 5;
-    freqSeg = 1;
-    for (int i = 0; i < 6; i++) {
-      bC[i] = 7;
-      acendeLed(i, INCOLOR);
-    }
-    
-    while (digitalRead(BTN_START_RESET)); //Para o botão não registrar múltiplos clicks
-    lcd.clear();
-  }
-}
-
 void giraAntiHorario() {
   motor.step(0 - PASSO_MOTOR);
 }
@@ -331,22 +329,18 @@ void ativaErro() {
 
 void verificaErro(double* freqColetada) {
   if(freqSeg != 1) {
-    int nGiros = girouAntiHorario - girouHorario;
     double disparidadeFreq = freqSeg - (*freqColetada);
     
     if (abs(disparidadeFreq) > DISPARIDADE_MAXIMA_FREQ_SEG) { 
       //Se a diferença da frequência anterior para a atual é muito grande
-      ativaErro();
-    } else if(abs(nGiros) > 2 && (((*freqColetada) >= freqSeg - MARGEM_DE_ERRO_AFINACAO) && ((*freqColetada) <= freqSeg + MARGEM_DE_ERRO_AFINACAO))){
-      //Se o motor está girando mas a frequência não está mudando
       ativaErro();
     } else {
       freqSeg = (*freqColetada);
     }
   } else {
     //Verifica se o usuário já começou a afinação da corda x tocando a corda errada
-    giraAntiHorario();
-    giraAntiHorario(); //Afrouxa
+    giraHorario();
+    giraHorario(); //Afrouxa
     double freqAnalise = getFrequenciaMedia();
     if((freqAnalise >= (*freqColetada) - MARGEM_DE_ERRO_AFINACAO) && (freqAnalise <= (*freqColetada) + MARGEM_DE_ERRO_AFINACAO)) {
       ativaErro();
@@ -355,6 +349,17 @@ void verificaErro(double* freqColetada) {
       freqSeg = (*freqColetada);
     }
   }
+}
+
+void indicaCordaEmAfinacaoDisplay() {
+  lcd.clear();
+  display();
+  posicionaIndicador(5, 2, 6, 13, 0, 1, 'x', &cordaEmAfinacao);
+  posicionaIndicador(4, 6, 2, 13, 0, 1, 'x', &cordaEmAfinacao);
+  posicionaIndicador(3, 13, 6, 2, 0, 1, 'x', &cordaEmAfinacao);
+  posicionaIndicador(2, 2, 6, 13, 1, 0, 'x', &cordaEmAfinacao);
+  posicionaIndicador(1, 6, 2, 13, 1, 0, 'x', &cordaEmAfinacao);
+  posicionaIndicador(0, 13, 6, 2, 1, 0, 'x', &cordaEmAfinacao);
 }
 
 void loop() {
@@ -371,7 +376,8 @@ void loop() {
     posicionaIndicador(0, 13, 6, 2, 1, 0, '>', &cordaSelecionada);
 
     if (digitalRead(BTN_START_RESET)) {
-      while (digitalRead(BTN_START_RESET));
+      indicaCordaEmAfinacaoDisplay();
+      
       comecouAfinacao = true;
       acendeLed(cordaEmAfinacao, VERMELHO);
       freqBaseCorda[0] = freqCorda1[bC[0]]; 
@@ -380,6 +386,8 @@ void loop() {
       freqBaseCorda[3] = freqCorda4[bC[3]];
       freqBaseCorda[4] = freqCorda5[bC[4]];
       freqBaseCorda[5] = freqCorda6[bC[5]];
+
+      while (digitalRead(BTN_START_RESET));
     }
   }
 
@@ -391,13 +399,11 @@ void loop() {
       Serial.println(freqColetada);
 
       //Verifica se o usuário está tocando uma corda que não está sendo afinada pelo equipamento no momento
-      verificaErro(&freqColetada);
+      //verificaErro(&freqColetada);
       
       //Corda afinada
       if ((freqColetada >= freqBaseCorda[cordaEmAfinacao] - MARGEM_DE_ERRO_AFINACAO) && (freqColetada <= freqBaseCorda[cordaEmAfinacao] + MARGEM_DE_ERRO_AFINACAO)) { 
         paraMotor();
-        girouAntiHorario = 0; 
-        girouHorario = 0;
         acendeLed(cordaEmAfinacao, VERDE);
         trocandoCorda = true;
       }
@@ -405,13 +411,11 @@ void loop() {
       if(!trocandoCorda) {
         //Afrouxa a corda
         if (freqBaseCorda[cordaEmAfinacao] > freqColetada) {
-          giraAntiHorario();
-          girouAntiHorario++;
+          giraHorario();
         }
         //Aperta a corda
         if (freqBaseCorda[cordaEmAfinacao] < freqColetada) {
-          giraHorario();
-          girouHorario++;
+          giraAntiHorario();
         }
       }
       
@@ -422,6 +426,8 @@ void loop() {
             trocandoCorda = false;
             cordaEmAfinacao--;
             acendeLed(cordaEmAfinacao, VERMELHO);
+            indicaCordaEmAfinacaoDisplay();
+            
             while(digitalRead(BTN_TROCA_CORDA));
           }
         } else {
@@ -435,15 +441,7 @@ void loop() {
       if (digitalRead(BTN_TROCA_CORDA)) {
         erro = false;
         acendeLed(LED_ERRO, INCOLOR);
-        
-        lcd.clear();
-        display();
-        posicionaIndicador(5, 2, 6, 13, 0, 1, 'x', &cordaEmAfinacao);
-        posicionaIndicador(4, 6, 2, 13, 0, 1, 'x', &cordaEmAfinacao);
-        posicionaIndicador(3, 13, 6, 2, 0, 1, 'x', &cordaEmAfinacao);
-        posicionaIndicador(2, 2, 6, 13, 1, 0, 'x', &cordaEmAfinacao);
-        posicionaIndicador(1, 6, 2, 13, 1, 0, 'x', &cordaEmAfinacao);
-        posicionaIndicador(0, 13, 6, 2, 1, 0, 'x', &cordaEmAfinacao);
+        indicaCordaEmAfinacaoDisplay();
         
         while (digitalRead(BTN_TROCA_CORDA));
       }
