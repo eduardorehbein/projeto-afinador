@@ -77,7 +77,7 @@ int cordaSelecionada = 5; //Utilizada durante a etapa de setup das frequências 
 int cordaEmAfinacao = 5;
 
 //Portas de entrada de dados
-const int BTN_INDICADOR = A1, BTN_TROCA_TOM = A2, BTN_TROCA_CORDA = A3, BTN_START_RESET = 6, ENTRADA_SINAL = A5; 
+const int BTN_INDICADOR = A1, BTN_TROCA_TOM = A2, BTN_TROCA_CORDA = A3, BTN_START_RESET = 6, ENTRADA_SINAL = A6; 
 
 //Variáveis de estado
 bool erro = false;
@@ -86,9 +86,10 @@ bool comecouAfinacao = false;
 
 //Variável que guarda um valor de frequência utilizada para evitar que o usuário prejudique seu instrumento tocando a corda que não está sob o processo de afinação
 double freqSeg = 1;   
+int resetando = 0;
 
 const double DISPARIDADE_MAXIMA_FREQ_SEG = 15;
-const double MARGEM_DE_ERRO_AFINACAO = 0.3;
+const double MARGEM_DE_ERRO_AFINACAO = 0.1;
 
 //Cores para os leds
 const uint32_t VERMELHO = neoPixel.Color(200, 0, 0);
@@ -116,6 +117,7 @@ void setup() {
 void verificaReset(int resetForcado) {
   if (digitalRead(BTN_START_RESET) || resetForcado) {
     //Reseta as variáveis
+    resetando = 1;
     comecouAfinacao = false;
     erro = false;
     trocandoCorda = false;
@@ -137,7 +139,7 @@ double leFrequencia() {
   int amplitudeInicial = 0;
   int amplitudeAtual = 0;
   int amplitudeAnterior = 0;
-  int referencia = 200;
+  int referencia = 600;
   
   //As variáveis de tempo têm seus valores em microssegundos
   long instanteAtual = 0;
@@ -153,13 +155,13 @@ double leFrequencia() {
 
   double frequencia = 0;
   
-  while(!frequencia) {
+  while(!frequencia && !resetando) {
     verificaReset(0);
     instanteAtual = micros();
     amplitudeAtual = analogRead(ENTRADA_SINAL);
     
-    if(amplitudeAtual > referencia)
-      amplitudeAtual = 1023;
+    if(amplitudeAtual >= referencia)
+      amplitudeAtual = 1;
     else if(amplitudeAtual < referencia)
       amplitudeAtual = 0;
       
@@ -185,6 +187,16 @@ double leFrequencia() {
           } else {
             double periodo = semiPeriodo1 + semiPeriodo2;
             frequencia = 1 / (periodo * pow(10, -6));
+            if(frequencia > 360) {
+              frequencia = 0;
+              semiPeriodo1 = 0;
+              semiPeriodo2 = 0;
+              instanteInicioSemiPeriodo = 0;
+              amplitudeAnterior = 0;
+              amplitudeInicial = 0;
+              leuAmplitudeInicial = false;
+              comecouLeitura = false;
+            }
           }
         }
       }
@@ -203,48 +215,6 @@ double leFrequencia() {
   }
   
   return frequencia;
-}
-
-double getFrequenciaMedia(){
-  const int QTD_AMOSTRAS = 5; 
-  double freqAmostradas[QTD_AMOSTRAS];
-  double somaFrequenciasNaMedia = 0;
-  int tamanhoArrayMedia = 0;
-  int numFreqForaCurva = 0;
-  double frequenciaMedia = 0;
-  int indice = 0;// indice do 2 array, o array das medias, que só será declarado mais para frente no código.
-  double comparacao = 0;
-  double parametro = 0;
-  
-  for(int i = 0; i < QTD_AMOSTRAS; i++){
-    freqAmostradas[i] = leFrequencia();
-  }
-  for(int i = 0; i < QTD_AMOSTRAS; i++){
-    comparacao = freqAmostradas[i] - freqAmostradas[i + 1];
-    if(abs(comparacao) < 10){
-      parametro = (freqAmostradas[i] + freqAmostradas[i + 1])/2;
-      break;
-    }  
-  }
-  for(int i = 0; i < QTD_AMOSTRAS; i++){
-    if(freqAmostradas[i] < parametro - 5 || freqAmostradas[i] > parametro + 5){
-      numFreqForaCurva = numFreqForaCurva + 1;
-    }
-  }
-  tamanhoArrayMedia = QTD_AMOSTRAS - numFreqForaCurva;
-  double freqNaMedia[tamanhoArrayMedia];
-  for(int i = 0; i < QTD_AMOSTRAS; i++){
-    if(freqAmostradas[i] < parametro + 5 && freqAmostradas[i] > parametro - 5){
-      freqNaMedia[indice] = freqAmostradas[i];
-      indice++;
-    }
-  }
-  for(int i = 0; i < tamanhoArrayMedia; i++){
-      somaFrequenciasNaMedia = somaFrequenciasNaMedia + freqNaMedia[i]; 
-  }
-  frequenciaMedia = somaFrequenciasNaMedia/tamanhoArrayMedia;
-  
-  return frequenciaMedia;
 }
 
 void display() {
@@ -328,27 +298,27 @@ void ativaErro() {
 }
 
 void verificaErro(double* freqColetada) {
-  if(freqSeg != 1) {
-    double disparidadeFreq = freqSeg - (*freqColetada);
-    
-    if (abs(disparidadeFreq) > DISPARIDADE_MAXIMA_FREQ_SEG) { 
-      //Se a diferença da frequência anterior para a atual é muito grande
-      ativaErro();
-    } else {
-      freqSeg = (*freqColetada);
-    }
-  } else {
+  if(freqSeg == 1) {
     //Verifica se o usuário já começou a afinação da corda x tocando a corda errada
     giraHorario();
     giraHorario(); //Afrouxa
-    double freqAnalise = getFrequenciaMedia();
+    double freqAnalise = leFrequencia();
     if((freqAnalise >= (*freqColetada) - MARGEM_DE_ERRO_AFINACAO) && (freqAnalise <= (*freqColetada) + MARGEM_DE_ERRO_AFINACAO)) {
       ativaErro();
     } else {
       (*freqColetada) = freqAnalise;
       freqSeg = (*freqColetada);
     }
-  }
+  }/* else { A ser validada nos últimos testes
+    double disparidadeFreq = freqSeg - (*freqColetada);
+  
+    if (abs(disparidadeFreq) > DISPARIDADE_MAXIMA_FREQ_SEG) { 
+      //Se a diferença da frequência anterior para a atual é muito grande
+      ativaErro();
+    } else {
+      freqSeg = (*freqColetada);
+    }
+  }*/
 }
 
 void indicaCordaEmAfinacaoDisplay() {
@@ -364,6 +334,7 @@ void indicaCordaEmAfinacaoDisplay() {
 
 void loop() {
   if (comecouAfinacao == false) {
+    resetando = 0;
     controlaVarComBtn(BTN_TROCA_TOM, &bC[cordaSelecionada], 7);
     controlaVarComBtn(BTN_INDICADOR, &cordaSelecionada, 5);
     
@@ -395,27 +366,28 @@ void loop() {
     verificaReset(0);
     
     if (erro == false) {
-      double freqColetada = getFrequenciaMedia();
+      double freqColetada = leFrequencia();
       Serial.println(freqColetada);
 
       //Verifica se o usuário está tocando uma corda que não está sendo afinada pelo equipamento no momento
-      //verificaErro(&freqColetada);
+      verificaErro(&freqColetada);
       
-      //Corda afinada
-      if ((freqColetada >= freqBaseCorda[cordaEmAfinacao] - MARGEM_DE_ERRO_AFINACAO) && (freqColetada <= freqBaseCorda[cordaEmAfinacao] + MARGEM_DE_ERRO_AFINACAO)) { 
-        paraMotor();
-        acendeLed(cordaEmAfinacao, VERDE);
-        trocandoCorda = true;
-      }
-
-      if(!trocandoCorda) {
-        //Afrouxa a corda
-        if (freqBaseCorda[cordaEmAfinacao] > freqColetada) {
-          giraHorario();
+      if(!resetando) { 
+        //Corda afinada
+        if ((freqColetada >= freqBaseCorda[cordaEmAfinacao] - MARGEM_DE_ERRO_AFINACAO) && (freqColetada <= freqBaseCorda[cordaEmAfinacao] + MARGEM_DE_ERRO_AFINACAO)) { 
+          paraMotor();
+          acendeLed(cordaEmAfinacao, VERDE);
+          trocandoCorda = true;
         }
-        //Aperta a corda
-        if (freqBaseCorda[cordaEmAfinacao] < freqColetada) {
-          giraAntiHorario();
+        if(!trocandoCorda) {
+          //Afrouxa a corda
+          if (freqBaseCorda[cordaEmAfinacao] > freqColetada) {
+            giraHorario();
+          }
+          //Aperta a corda
+          if (freqBaseCorda[cordaEmAfinacao] < freqColetada) {
+            giraAntiHorario();
+          }
         }
       }
       
