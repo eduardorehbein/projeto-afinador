@@ -86,7 +86,7 @@ double leFrequencia(int referencia) {
 }
 
 void testaReferencias() {
-  referencia = 550;
+  int referencia = 550;
   while(referencia < 800) {
     Serial.println(" ");
     Serial.print("Referencia: ");
