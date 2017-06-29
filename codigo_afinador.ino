@@ -1,3 +1,5 @@
+//Projeto Semestral Grupo 03 - Andre Flesch, Arthur Wunsch, Eduardo Rehbein
+
 #include <Stepper.h>
 #include <LiquidCrystal.h>
 #include <Adafruit_NeoPixel.h>
@@ -80,7 +82,6 @@ int cordaEmAfinacao = 5;
 const int BTN_INDICADOR = A1, BTN_TROCA_TOM = A2, BTN_TROCA_CORDA = A3, BTN_START_RESET = 6, ENTRADA_SINAL = A6; 
 
 //Variáveis de estado
-bool erro = false;
 bool trocandoCorda = false;
 bool comecouAfinacao = false;
 
@@ -95,10 +96,7 @@ const double MARGEM_DE_ERRO_AFINACAO = 0.1;
 const uint32_t VERMELHO = neoPixel.Color(200, 0, 0);
 const uint32_t VERDE = neoPixel.Color(0, 200, 0);
 const uint32_t AZUL = neoPixel.Color(0, 0, 200);
-const uint32_t AMARELO = neoPixel.Color(200, 150, 0);
 const uint32_t INCOLOR = neoPixel.Color(0, 0, 0);
-
-const int LED_ERRO = 6;
 
 void setup() {
   Serial.begin(9600);
@@ -119,7 +117,6 @@ void verificaReset(int resetForcado) {
     //Reseta as variáveis
     resetando = 1;
     comecouAfinacao = false;
-    erro = false;
     trocandoCorda = false;
     cordaEmAfinacao = 5;
     cordaSelecionada = 5;
@@ -288,39 +285,6 @@ void acendeLed(int posicao, uint32_t cor) {
   neoPixel.show();
 }
 
-void ativaErro() {
-  erro = true;
-  lcd.clear();
-  lcd.print("Erro!! Afinando");
-  lcd.setCursor(0, 1);
-  lcd.print("a corda errada");
-  acendeLed(LED_ERRO, AMARELO);
-}
-
-void verificaErro(double* freqColetada) {
-  if(freqSeg == 1) {
-    //Verifica se o usuário já começou a afinação da corda x tocando a corda errada
-    giraHorario();
-    giraHorario(); //Afrouxa
-    double freqAnalise = leFrequencia();
-    if((freqAnalise >= (*freqColetada) - MARGEM_DE_ERRO_AFINACAO) && (freqAnalise <= (*freqColetada) + MARGEM_DE_ERRO_AFINACAO)) {
-      ativaErro();
-    } else {
-      (*freqColetada) = freqAnalise;
-      freqSeg = (*freqColetada);
-    }
-  }/* else { A ser validada nos últimos testes
-    double disparidadeFreq = freqSeg - (*freqColetada);
-  
-    if (abs(disparidadeFreq) > DISPARIDADE_MAXIMA_FREQ_SEG) { 
-      //Se a diferença da frequência anterior para a atual é muito grande
-      ativaErro();
-    } else {
-      freqSeg = (*freqColetada);
-    }
-  }*/
-}
-
 void indicaCordaEmAfinacaoDisplay() {
   lcd.clear();
   display();
@@ -364,59 +328,44 @@ void loop() {
 
   if (comecouAfinacao == true) {
     verificaReset(0);
-    
-    if (erro == false) {
-      double freqColetada = leFrequencia();
-      Serial.println(freqColetada);
 
-      //Verifica se o usuário está tocando uma corda que não está sendo afinada pelo equipamento no momento
-      verificaErro(&freqColetada);
-      
-      if(!resetando) { 
-        //Corda afinada
-        if ((freqColetada >= freqBaseCorda[cordaEmAfinacao] - MARGEM_DE_ERRO_AFINACAO) && (freqColetada <= freqBaseCorda[cordaEmAfinacao] + MARGEM_DE_ERRO_AFINACAO)) { 
-          paraMotor();
-          acendeLed(cordaEmAfinacao, VERDE);
-          trocandoCorda = true;
-        }
-        if(!trocandoCorda) {
-          //Afrouxa a corda
-          if (freqBaseCorda[cordaEmAfinacao] > freqColetada) {
-            giraHorario();
-          }
-          //Aperta a corda
-          if (freqBaseCorda[cordaEmAfinacao] < freqColetada) {
-            giraAntiHorario();
-          }
-        }
+    double freqColetada = leFrequencia();
+    Serial.println(freqColetada);
+
+    if(!resetando) { 
+      //Corda afinada
+      if ((freqColetada >= freqBaseCorda[cordaEmAfinacao] - MARGEM_DE_ERRO_AFINACAO) && (freqColetada <= freqBaseCorda[cordaEmAfinacao] + MARGEM_DE_ERRO_AFINACAO)) { 
+        paraMotor();
+        acendeLed(cordaEmAfinacao, VERDE);
+        trocandoCorda = true;
       }
-      
-      while(trocandoCorda){
-        if(cordaEmAfinacao > 0) { //Verifica se já não está na última corda
-          verificaReset(0);
-          if(digitalRead(BTN_TROCA_CORDA)) {
-            trocandoCorda = false;
-            cordaEmAfinacao--;
-            acendeLed(cordaEmAfinacao, VERMELHO);
-            indicaCordaEmAfinacaoDisplay();
-            
-            while(digitalRead(BTN_TROCA_CORDA));
-          }
-        } else {
-          delay(1000);
-          verificaReset(1);
+      if(!trocandoCorda) {
+        //Afrouxa a corda
+        if (freqBaseCorda[cordaEmAfinacao] > freqColetada) {
+          giraHorario();
+        }
+        //Aperta a corda
+        if (freqBaseCorda[cordaEmAfinacao] < freqColetada) {
+          giraAntiHorario();
         }
       }
     }
-    
-    if (erro == true) {
-      if (digitalRead(BTN_TROCA_CORDA)) {
-        erro = false;
-        acendeLed(LED_ERRO, INCOLOR);
-        indicaCordaEmAfinacaoDisplay();
-        
-        while (digitalRead(BTN_TROCA_CORDA));
+
+    while(trocandoCorda){
+      if(cordaEmAfinacao > 0) { //Verifica se já não está na última corda
+        verificaReset(0);
+        if(digitalRead(BTN_TROCA_CORDA)) {
+          trocandoCorda = false;
+          cordaEmAfinacao--;
+          acendeLed(cordaEmAfinacao, VERMELHO);
+          indicaCordaEmAfinacaoDisplay();
+
+          while(digitalRead(BTN_TROCA_CORDA));
+        }
+      } else {
+        delay(1000);
+        verificaReset(1);
       }
-    }
+    }    
   }
 }
